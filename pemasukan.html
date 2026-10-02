@@ -137,99 +137,130 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec"; // <--- Masukkan Deployment URL Apps Script di sini
-    let allData = [];
+  const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec";
+  let dataPemasukan = [];
+  let dataPengeluaran = [];
 
-    async function loadData() {
-      try {
-        const response = await fetch(`${WEB_APP_URL}?action=getPemasukan`);
-        allData = await response.json();
-        filterData();
-      } catch (err) {
-        document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Gagal memuat data. Pastikan URL Web App benar.</td></tr>`;
-      }
+  async function loadData() {
+    try {
+      // Ambil data Pemasukan dan Pengeluaran secara bersamaan
+      const [resPemasukan, resPengeluaran] = await Promise.all([
+        fetch(`${WEB_APP_URL}?action=getPemasukan`),
+        fetch(`${WEB_APP_URL}?action=getPengeluaran`)
+      ]);
+
+      dataPemasukan = await resPemasukan.json();
+      dataPengeluaran = await resPengeluaran.json();
+
+      filterData();
+    } catch (err) {
+      document.getElementById('tableBody').innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Gagal memuat data.</td></tr>`;
     }
+  }
 
-    function filterData() {
-      const tgl = document.getElementById('filterTanggal').value;
-      const bln = document.getElementById('filterBulan').value;
-      const thn = document.getElementById('filterTahun').value;
+  function filterData() {
+    const tgl = document.getElementById('filterTanggal').value;
+    const bln = document.getElementById('filterBulan').value;
+    const thn = document.getElementById('filterTahun').value;
 
-      let filtered = allData.filter(item => {
-        let dateObj = new Date(item.tanggal);
-        let itemThn = dateObj.getFullYear().toString();
-        let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
+    // Filter Pemasukan
+    let filteredPemasukan = dataPemasukan.filter(item => {
+      let dateObj = new Date(item.tanggal);
+      let itemThn = dateObj.getFullYear().toString();
+      let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
+      return (!thn || itemThn === thn) && (!bln || itemBln === bln) && (!tgl || item.tanggal === tgl);
+    });
 
-        return (!thn || itemThn === thn) && (!bln || itemBln === bln) && (!tgl || item.tanggal === tgl);
+    // Filter Pengeluaran
+    let filteredPengeluaran = dataPengeluaran.filter(item => {
+      let dateObj = new Date(item.tanggal);
+      let itemThn = dateObj.getFullYear().toString();
+      let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
+      return (!thn || itemThn === thn) && (!bln || itemBln === bln) && (!tgl || item.tanggal === tgl);
+    });
+
+    renderTable(filteredPemasukan, filteredPengeluaran);
+  }
+
+  function renderTable(pemasukanList, pengeluaranList) {
+    const tbody = document.getElementById('tableBody');
+    tbody.innerHTML = '';
+
+    let totalPenjualan = 0;
+    let totalPengeluaran = 0;
+
+    // Hitung Total Pengeluaran pada periode filter
+    pengeluaranList.forEach(item => {
+      totalPengeluaran += (item.jumlah * item.hargaSatuan);
+    });
+
+    if (pemasukanList.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada data penjualan pada periode ini.</td></tr>`;
+    } else {
+      pemasukanList.forEach(row => {
+        let omsetRow = row.jumlah * row.hargaSatuan;
+        totalPenjualan += omsetRow;
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${row.id}</td>
+            <td>${row.tanggal}</td>
+            <td>${row.kategori}</td>
+            <td>${row.jumlah}</td>
+            <td>Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}</td>
+            <td class="fw-bold text-success">Rp ${Number(omsetRow).toLocaleString('id-ID')}</td>
+          </tr>
+        `;
       });
-
-      renderTable(filtered);
     }
 
-    function renderTable(data) {
-      const tbody = document.getElementById('tableBody');
-      tbody.innerHTML = '';
-      let totalOmset = 0;
-      let totalProfit = 0;
+    // Hitung Keuntungan (Total Penjualan - Total Pengeluaran)
+    let totalKeuntungan = totalPenjualan - totalPengeluaran;
 
-      if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Tidak ada data penjualan.</td></tr>`;
-      } else {
-        data.forEach(row => {
-          let omsetRow = row.jumlah * row.hargaSatuan;
-          let profitRow = row.jumlah * row.keuntungan;
-          totalOmset += omsetRow;
-          totalProfit += profitRow;
+    document.getElementById('displayTotalPenjualan').innerText = `Rp ${Number(totalPenjualan).toLocaleString('id-ID')}`;
+    
+    // Tampilan warna keuntungan (Hijau jika plus, Merah jika minus/rugi)
+    const profitElement = document.getElementById('displayTotalProfit');
+    profitElement.innerText = `Rp ${Number(totalKeuntungan).toLocaleString('id-ID')}`;
+    if (totalKeuntungan < 0) {
+      profitElement.parentElement.classList.remove('bg-primary');
+      profitElement.parentElement.classList.add('bg-danger');
+    } else {
+      profitElement.parentElement.classList.remove('bg-danger');
+      profitElement.parentElement.classList.add('bg-primary');
+    }
+  }
 
-          tbody.innerHTML += `
-            <tr>
-              <td>${row.id}</td>
-              <td>${row.tanggal}</td>
-              <td>${row.kategori}</td>
-              <td>${row.jumlah}</td>
-              <td>Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}</td>
-              <td class="fw-bold text-success">Rp ${Number(omsetRow).toLocaleString('id-ID')}</td>
-              <td class="fw-bold text-primary">Rp ${Number(profitRow).toLocaleString('id-ID')}</td>
-            </tr>
-          `;
-        });
+  async function submitForm(e) {
+    e.preventDefault();
+    const qty = Number(document.getElementById('inputJumlah').value);
+    const harga = Number(document.getElementById('inputHarga').value);
+
+    const payload = {
+      action: 'addTransaction',
+      payload: {
+        id: 'TRX-' + Date.now(),
+        tanggal: document.getElementById('inputTanggal').value,
+        jenis: 'Pemasukan',
+        kategori: document.getElementById('inputMenu').value,
+        jumlah: qty,
+        hargaSatuan: harga,
+        total: qty * harga,
+        keuntungan: 0
       }
+    };
 
-      document.getElementById('displayTotalPenjualan').innerText = `Rp ${Number(totalOmset).toLocaleString('id-ID')}`;
-      document.getElementById('displayTotalProfit').innerText = `Rp ${Number(totalProfit).toLocaleString('id-ID')}`;
-    }
+    await fetch(WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
 
-    async function submitForm(e) {
-      e.preventDefault();
-      const qty = Number(document.getElementById('inputJumlah').value);
-      const harga = Number(document.getElementById('inputHarga').value);
-      const profitUnit = Number(document.getElementById('inputProfit').value);
+    bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
+    document.getElementById('formPemasukan').reset();
+    loadData();
+  }
 
-      const payload = {
-        action: 'addTransaction',
-        payload: {
-          id: 'TRX-' + Date.now(),
-          tanggal: document.getElementById('inputTanggal').value,
-          jenis: 'Pemasukan',
-          kategori: document.getElementById('inputMenu').value,
-          jumlah: qty,
-          hargaSatuan: harga,
-          total: qty * harga,
-          keuntungan: profitUnit
-        }
-      };
-
-      await fetch(WEB_APP_URL, {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-
-      bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
-      document.getElementById('formPemasukan').reset();
-      loadData();
-    }
-
-    window.onload = loadData;
-  </script>
+  window.onload = loadData;
+</script>
 </body>
 </html>
