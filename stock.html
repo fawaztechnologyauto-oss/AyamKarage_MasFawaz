@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Stok Barang</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <!-- Header Navigasi -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
+        <h2 class="fw-bold mb-0">Halaman Stock Barang</h2>
+      </div>
+      <button class="btn btn-primary" onclick="loadStockData()"><i class="bi bi-arrow-clockwise"></i> Refresh Data</button>
+    </div>
+
+    <!-- Alert Info Telegram -->
+    <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4" role="alert">
+      <i class="bi bi-telegram fs-3 me-3 text-primary"></i>
+      <div>
+        <strong>Notifikasi Otomatis Aktif!</strong><br>
+        Sistem akan otomatis mengirimkan notifikasi ke Telegram jika stok barang berada di bawah atau sama dengan <strong>Stok Minimum</strong>.
+      </div>
+    </div>
+
+    <!-- Tabel Stok Barang -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th>ID Barang</th>
+                <th>Nama Bahan Baku</th>
+                <th>Stok Tersisa</th>
+                <th>Satuan</th>
+                <th>Stok Minimum</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tableStockBody">
+              <tr><td colspan="6" class="text-center py-4">Memuat data stok...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec"; // <--- Masukkan Deployment URL Apps Script di sini
+
+    async function loadStockData() {
+      const tbody = document.getElementById('tableStockBody');
+      tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Memuat data stok...</td></tr>`;
+
+      try {
+        const response = await fetch(`${WEB_APP_URL}?action=getStock`);
+        const data = await response.json();
+
+        tbody.innerHTML = '';
+        if (data.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data barang di sheet Stock_Barang.</td></tr>`;
+          return;
+        }
+
+        data.forEach(item => {
+          let isWarning = Number(item.stokTersisa) <= Number(item.stokMinimum);
+          let rowClass = isWarning ? 'table-danger' : '';
+          let badgeStatus = isWarning 
+            ? '<span class="badge bg-danger"><i class="bi bi-exclamation-triangle-fill"></i> WARNING / REFILL</span>' 
+            : '<span class="badge bg-success">AMAN</span>';
+
+          tbody.innerHTML += `
+            <tr class="${rowClass}">
+              <td class="fw-bold">${item.idBarang}</td>
+              <td>${item.namaBarang}</td>
+              <td class="fw-bold fs-5">${item.stokTersisa}</td>
+              <td>${item.satuan}</td>
+              <td>${item.stokMinimum}</td>
+              <td>${badgeStatus}</td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">Gagal mengambil data stok dari Google Sheets.</td></tr>`;
+      }
+    }
+
+    window.onload = loadStockData;
+  </script>
+</body>
+</html>
