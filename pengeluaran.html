@@ -121,7 +121,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Kategori / Deskripsi</label>
-              <input type="text" id="inputKategori" class="form-control" placeholder="Contoh: Beli Daging Sapi" required>
+              <input type="text" id="inputKategori" class="form-control" placeholder="Contoh: Ayam Fillet Biasa" required>
             </div>
             <div class="mb-3">
               <label class="form-label">Jumlah (Qty)</label>
@@ -168,6 +168,9 @@
       const thn = document.getElementById('filterTahun').value;
 
       let filtered = allData.filter(item => {
+        // Hanya tampilkan data transaksi yang jenisnya BUKAN Pemasukan
+        let isPengeluaran = item.jenis !== 'Pemasukan';
+
         let dateObj = new Date(item.tanggal);
         let itemThn = dateObj.getFullYear().toString();
         let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
@@ -176,7 +179,7 @@
         let matchBln = !bln || itemBln === bln;
         let matchTgl = !tgl || item.tanggal === tgl;
 
-        return matchThn && matchBln && matchTgl;
+        return isPengeluaran && matchThn && matchBln && matchTgl;
       });
 
       renderTable(filtered);
@@ -198,7 +201,7 @@
             <tr>
               <td>${row.id}</td>
               <td>${row.tanggal}</td>
-              <td><span class="badge bg-secondary">${row.jenis || 'Pengeluaran'}</span></td>
+              <td><span class="badge bg-danger">${row.jenis || 'Pengeluaran'}</span></td>
               <td>${row.kategori}</td>
               <td>${row.jumlah}</td>
               <td>Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}</td>
@@ -260,7 +263,7 @@
         payload: {
           id: isEdit ? id : 'TRX-' + Date.now(),
           tanggal: document.getElementById('inputTanggal').value,
-          jenis: document.getElementById('inputJenis').value,
+          jenis: document.getElementById('inputJenis').value, // Mengirim jenis pilihan seperti "Bahan Baku" ke Kolom C Sheet
           kategori: document.getElementById('inputKategori').value,
           jumlah: Number(document.getElementById('inputJumlah').value),
           hargaSatuan: Number(document.getElementById('inputHarga').value),
