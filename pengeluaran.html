@@ -49,7 +49,8 @@
             <div class="col-md-4">
               <label class="form-label small text-muted">Pilih Tahun</label>
               <select id="filterTahun" class="form-select" onchange="filterData()">
-                <option value="2026">2026</option>
+                <option value="">Semua Tahun</option>
+                <option value="2026" selected>2026</option>
                 <option value="2025">2025</option>
               </select>
             </div>
@@ -156,8 +157,10 @@
       try {
         const response = await fetch(`${WEB_APP_URL}?action=getPengeluaran`);
         allData = await response.json();
+        console.log("Data diterima dari server:", allData); // Debugging log
         filterData();
       } catch (err) {
+        console.error(err);
         document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Gagal memuat data. Pastikan URL Web App benar.</td></tr>`;
       }
     }
@@ -168,16 +171,29 @@
       const thn = document.getElementById('filterTahun').value;
 
       let filtered = allData.filter(item => {
-        // Hanya tampilkan data transaksi yang jenisnya BUKAN Pemasukan
-        let isPengeluaran = item.jenis !== 'Pemasukan';
+        // 1. Cek Jenis Pengeluaran (Setiap jenis selain "Pemasukan" dianggap Pengeluaran)
+        const jenisStr = String(item.jenis || '').trim().toLowerCase();
+        let isPengeluaran = jenisStr !== 'pemasukan';
 
-        let dateObj = new Date(item.tanggal);
-        let itemThn = dateObj.getFullYear().toString();
-        let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
-        
+        // 2. Parsing Tanggal String secara Aman (format: YYYY-MM-DD atau ISO)
+        let itemThn = '';
+        let itemBln = '';
+        let itemTglFormat = '';
+
+        if (item.tanggal) {
+          let strTgl = String(item.tanggal).split('T')[0]; // Ambil YYYY-MM-DD saja jika ada timestamp
+          let parts = strTgl.split('-');
+          if (parts.length === 3) {
+            itemThn = parts[0];
+            itemBln = parts[1].padStart(2, '0');
+            itemTglFormat = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+          }
+        }
+
+        // 3. Cocokkan Filter
         let matchThn = !thn || itemThn === thn;
         let matchBln = !bln || itemBln === bln;
-        let matchTgl = !tgl || item.tanggal === tgl;
+        let matchTgl = !tgl || itemTglFormat === tgl;
 
         return isPengeluaran && matchThn && matchBln && matchTgl;
       });
@@ -194,17 +210,20 @@
         tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada data pengeluaran.</td></tr>`;
       } else {
         data.forEach(row => {
-          let totalRow = Number(row.jumlah) * Number(row.hargaSatuan);
+          let totalRow = Number(row.jumlah || 0) * Number(row.hargaSatuan || 0);
           totalPengeluaran += totalRow;
+
+          // Format tanggal bersih untuk tampilan
+          let cleanTanggal = String(row.tanggal || '').split('T')[0];
 
           tbody.innerHTML += `
             <tr>
-              <td>${row.id}</td>
-              <td>${row.tanggal}</td>
+              <td>${row.id || '-'}</td>
+              <td>${cleanTanggal}</td>
               <td><span class="badge bg-danger">${row.jenis || 'Pengeluaran'}</span></td>
-              <td>${row.kategori}</td>
-              <td>${row.jumlah}</td>
-              <td>Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}</td>
+              <td>${row.kategori || '-'}</td>
+              <td>${row.jumlah || 0}</td>
+              <td>Rp ${Number(row.hargaSatuan || 0).toLocaleString('id-ID')}</td>
               <td class="fw-bold">Rp ${Number(totalRow).toLocaleString('id-ID')}</td>
               <td class="text-center">
                 <button class="btn btn-sm btn-outline-warning me-1" onclick="openEditModal('${row.id}')" title="Edit Data">
@@ -239,8 +258,10 @@
         return;
       }
 
+      let cleanTanggal = String(item.tanggal || '').split('T')[0];
+
       document.getElementById('inputId').value = item.id;
-      document.getElementById('inputTanggal').value = item.tanggal;
+      document.getElementById('inputTanggal').value = cleanTanggal;
       document.getElementById('inputJenis').value = item.jenis || '';
       document.getElementById('inputKategori').value = item.kategori;
       document.getElementById('inputJumlah').value = item.jumlah;
@@ -263,7 +284,7 @@
         payload: {
           id: isEdit ? id : 'TRX-' + Date.now(),
           tanggal: document.getElementById('inputTanggal').value,
-          jenis: document.getElementById('inputJenis').value, // Mengirim jenis pilihan seperti "Bahan Baku" ke Kolom C Sheet
+          jenis: document.getElementById('inputJenis').value,
           kategori: document.getElementById('inputKategori').value,
           jumlah: Number(document.getElementById('inputJumlah').value),
           hargaSatuan: Number(document.getElementById('inputHarga').value),
