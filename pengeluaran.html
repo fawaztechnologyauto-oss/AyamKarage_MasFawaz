@@ -73,6 +73,7 @@
               <tr>
                 <th>ID Trx</th>
                 <th>Tanggal</th>
+                <th>Jenis Pengeluaran</th>
                 <th>Kategori / Deskripsi</th>
                 <th>Jumlah</th>
                 <th>Harga Satuan</th>
@@ -81,7 +82,7 @@
               </tr>
             </thead>
             <tbody id="tableBody">
-              <tr><td colspan="7" class="text-center py-4">Memuat data...</td></tr>
+              <tr><td colspan="8" class="text-center py-4">Memuat data...</td></tr>
             </tbody>
           </table>
         </div>
@@ -105,6 +106,18 @@
             <div class="mb-3">
               <label class="form-label">Tanggal</label>
               <input type="date" id="inputTanggal" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Jenis Pengeluaran</label>
+              <select id="inputJenis" class="form-select" required>
+                <option value="" disabled selected>-- Pilih Jenis --</option>
+                <option value="Bahan Baku">Bahan Baku</option>
+                <option value="Operasional">Operasional</option>
+                <option value="Gaji Karyawan">Gaji Karyawan</option>
+                <option value="Sewa Tempat">Sewa Tempat</option>
+                <option value="Listrik & Air">Listrik & Air</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
             </div>
             <div class="mb-3">
               <label class="form-label">Kategori / Deskripsi</label>
@@ -145,7 +158,7 @@
         allData = await response.json();
         filterData();
       } catch (err) {
-        document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Gagal memuat data. Pastikan URL Web App benar.</td></tr>`;
+        document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Gagal memuat data. Pastikan URL Web App benar.</td></tr>`;
       }
     }
 
@@ -175,7 +188,7 @@
       let totalPengeluaran = 0;
 
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Tidak ada data pengeluaran.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada data pengeluaran.</td></tr>`;
       } else {
         data.forEach(row => {
           let totalRow = Number(row.jumlah) * Number(row.hargaSatuan);
@@ -185,6 +198,7 @@
             <tr>
               <td>${row.id}</td>
               <td>${row.tanggal}</td>
+              <td><span class="badge bg-secondary">${row.jenis || 'Pengeluaran'}</span></td>
               <td>${row.kategori}</td>
               <td>${row.jumlah}</td>
               <td>Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}</td>
@@ -224,6 +238,7 @@
 
       document.getElementById('inputId').value = item.id;
       document.getElementById('inputTanggal').value = item.tanggal;
+      document.getElementById('inputJenis').value = item.jenis || '';
       document.getElementById('inputKategori').value = item.kategori;
       document.getElementById('inputJumlah').value = item.jumlah;
       document.getElementById('inputHarga').value = item.hargaSatuan;
@@ -245,7 +260,7 @@
         payload: {
           id: isEdit ? id : 'TRX-' + Date.now(),
           tanggal: document.getElementById('inputTanggal').value,
-          jenis: 'Pengeluaran',
+          jenis: document.getElementById('inputJenis').value,
           kategori: document.getElementById('inputKategori').value,
           jumlah: Number(document.getElementById('inputJumlah').value),
           hargaSatuan: Number(document.getElementById('inputHarga').value),
