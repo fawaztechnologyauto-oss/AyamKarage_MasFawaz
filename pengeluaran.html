@@ -15,7 +15,6 @@
         <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
         <h2 class="fw-bold mb-0">Halaman Pengeluaran</h2>
       </div>
-      <!-- Panggil fungsi openAddModal() -->
       <button class="btn btn-danger" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Tambah Pengeluaran</button>
     </div>
 
@@ -31,7 +30,7 @@
             <div class="col-md-4">
               <label class="form-label small text-muted">Pilih Bulan</label>
               <select id="filterBulan" class="form-select" onchange="filterData()">
-                <option value="">Semua Bulan</option>
+                <option value="" selected>Semua Bulan</option>
                 <option value="01">Januari</option>
                 <option value="02">Februari</option>
                 <option value="03">Maret</option>
@@ -49,8 +48,8 @@
             <div class="col-md-4">
               <label class="form-label small text-muted">Pilih Tahun</label>
               <select id="filterTahun" class="form-select" onchange="filterData()">
-                <option value="">Semua Tahun</option>
-                <option value="2026" selected>2026</option>
+                <option value="" selected>Semua Tahun</option>
+                <option value="2026">2026</option>
                 <option value="2025">2025</option>
               </select>
             </div>
@@ -59,7 +58,7 @@
       </div>
       <div class="col-md-4">
         <div class="card border-0 shadow-sm bg-danger text-white p-3 text-center">
-          <span class="small">Total Pengeluaran Bulan Ini</span>
+          <span class="small">Total Pengeluaran</span>
           <h3 class="fw-bold my-1" id="displayTotal">Rp 0</h3>
         </div>
       </div>
@@ -91,7 +90,7 @@
     </div>
   </div>
 
-  <!-- Modal Form (Satu Modal untuk Tambah & Edit) -->
+  <!-- Modal Form -->
   <div class="modal fade" id="modalForm" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -101,7 +100,6 @@
         </div>
         <form id="formPengeluaran" onsubmit="submitForm(event)">
           <div class="modal-body">
-            <!-- Hidden ID untuk menyimpan ID saat Edit -->
             <input type="hidden" id="inputId">
 
             <div class="mb-3">
@@ -157,12 +155,50 @@
       try {
         const response = await fetch(`${WEB_APP_URL}?action=getPengeluaran`);
         allData = await response.json();
-        console.log("Data diterima dari server:", allData); // Debugging log
+        
+        // Cetak data ke console browser untuk memeriksa struktur JSON asli
+        console.log("Data mentah dari Web App:", allData);
+
         filterData();
       } catch (err) {
-        console.error(err);
-        document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Gagal memuat data. Pastikan URL Web App benar.</td></tr>`;
+        console.error("Gagal mengambil data:", err);
+        document.getElementById('tableBody').innerHTML = `<tr><td colspan="8" class="text-center text-danger py-4">Gagal memuat data. Periksa koneksi atau URL Web App.</td></tr>`;
       }
+    }
+
+    function parseDateString(rawDate) {
+      if (!rawDate) return { thn: '', bln: '', tglFormat: '', cleanDate: '' };
+
+      let d = new Date(rawDate);
+      
+      // Jika penanganan tanggal Date standar berhasil (bukan NaN)
+      if (!isNaN(d.getTime())) {
+        let thn = d.getFullYear().toString();
+        let bln = String(d.getMonth() + 1).padStart(2, '0');
+        let tgl = String(d.getDate()).padStart(2, '0');
+        return {
+          thn: thn,
+          bln: bln,
+          tglFormat: `${thn}-${bln}-${tgl}`,
+          cleanDate: `${thn}-${bln}-${tgl}`
+        };
+      }
+
+      // Fallback jika formatnya YYYY-MM-DD atau DD/MM/YYYY
+      let str = String(rawDate).split('T')[0];
+      if (str.includes('-')) {
+        let parts = str.split('-');
+        if (parts.length === 3) {
+          return {
+            thn: parts[0],
+            bln: parts[1].padStart(2, '0'),
+            tglFormat: `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`,
+            cleanDate: `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+          };
+        }
+      }
+
+      return { thn: '', bln: '', tglFormat: str, cleanDate: str };
     }
 
     function filterData() {
@@ -171,29 +207,16 @@
       const thn = document.getElementById('filterTahun').value;
 
       let filtered = allData.filter(item => {
-        // 1. Cek Jenis Pengeluaran (Setiap jenis selain "Pemasukan" dianggap Pengeluaran)
+        // Cek Jenis (Abaikan Pemasukan)
         const jenisStr = String(item.jenis || '').trim().toLowerCase();
         let isPengeluaran = jenisStr !== 'pemasukan';
 
-        // 2. Parsing Tanggal String secara Aman (format: YYYY-MM-DD atau ISO)
-        let itemThn = '';
-        let itemBln = '';
-        let itemTglFormat = '';
+        // Parse Tanggal
+        const parsed = parseDateString(item.tanggal);
 
-        if (item.tanggal) {
-          let strTgl = String(item.tanggal).split('T')[0]; // Ambil YYYY-MM-DD saja jika ada timestamp
-          let parts = strTgl.split('-');
-          if (parts.length === 3) {
-            itemThn = parts[0];
-            itemBln = parts[1].padStart(2, '0');
-            itemTglFormat = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-          }
-        }
-
-        // 3. Cocokkan Filter
-        let matchThn = !thn || itemThn === thn;
-        let matchBln = !bln || itemBln === bln;
-        let matchTgl = !tgl || itemTglFormat === tgl;
+        let matchThn = !thn || parsed.thn === thn;
+        let matchBln = !bln || parsed.bln === bln;
+        let matchTgl = !tgl || parsed.tglFormat === tgl;
 
         return isPengeluaran && matchThn && matchBln && matchTgl;
       });
@@ -207,19 +230,18 @@
       let totalPengeluaran = 0;
 
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada data pengeluaran.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Tidak ada data pengeluaran yang cocok.</td></tr>`;
       } else {
         data.forEach(row => {
-          let totalRow = Number(row.jumlah || 0) * Number(row.hargaSatuan || 0);
+          let totalRow = Number(row.total) || (Number(row.jumlah || 0) * Number(row.hargaSatuan || 0));
           totalPengeluaran += totalRow;
 
-          // Format tanggal bersih untuk tampilan
-          let cleanTanggal = String(row.tanggal || '').split('T')[0];
+          const parsed = parseDateString(row.tanggal);
 
           tbody.innerHTML += `
             <tr>
               <td>${row.id || '-'}</td>
-              <td>${cleanTanggal}</td>
+              <td>${parsed.cleanDate || row.tanggal || '-'}</td>
               <td><span class="badge bg-danger">${row.jenis || 'Pengeluaran'}</span></td>
               <td>${row.kategori || '-'}</td>
               <td>${row.jumlah || 0}</td>
@@ -241,7 +263,6 @@
       document.getElementById('displayTotal').innerText = `Rp ${Number(totalPengeluaran).toLocaleString('id-ID')}`;
     }
 
-    // Modal untuk Tambah Data
     function openAddModal() {
       document.getElementById('formPengeluaran').reset();
       document.getElementById('inputId').value = '';
@@ -250,7 +271,6 @@
       modalInstance.show();
     }
 
-    // Modal untuk Edit Data
     function openEditModal(id) {
       const item = allData.find(d => String(d.id) === String(id));
       if (!item) {
@@ -258,21 +278,20 @@
         return;
       }
 
-      let cleanTanggal = String(item.tanggal || '').split('T')[0];
+      const parsed = parseDateString(item.tanggal);
 
       document.getElementById('inputId').value = item.id;
-      document.getElementById('inputTanggal').value = cleanTanggal;
+      document.getElementById('inputTanggal').value = parsed.cleanDate;
       document.getElementById('inputJenis').value = item.jenis || '';
-      document.getElementById('inputKategori').value = item.kategori;
-      document.getElementById('inputJumlah').value = item.jumlah;
-      document.getElementById('inputHarga').value = item.hargaSatuan;
+      document.getElementById('inputKategori').value = item.kategori || '';
+      document.getElementById('inputJumlah').value = item.jumlah || 0;
+      document.getElementById('inputHarga').value = item.hargaSatuan || 0;
 
       document.getElementById('modalTitle').innerText = 'Edit Pengeluaran';
       document.getElementById('btnSubmit').innerText = 'Update Data';
       modalInstance.show();
     }
 
-    // Simpan Data (Handling Tambah & Edit)
     async function submitForm(e) {
       e.preventDefault();
       
@@ -296,6 +315,7 @@
       try {
         await fetch(WEB_APP_URL, {
           method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Menghindari masalah CORS preflight pada Apps Script
           body: JSON.stringify(payload)
         });
         modalInstance.hide();
@@ -305,7 +325,6 @@
       }
     }
 
-    // Hapus Data (Delete)
     async function deleteData(id) {
       if (!confirm(`Apakah Anda yakin ingin menghapus transaksi dengan ID: ${id}?`)) return;
 
@@ -317,6 +336,7 @@
       try {
         await fetch(WEB_APP_URL, {
           method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
         loadData();
