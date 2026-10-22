@@ -156,9 +156,7 @@
         const response = await fetch(`${WEB_APP_URL}?action=getPengeluaran`);
         allData = await response.json();
         
-        // Cetak data ke console browser untuk memeriksa struktur JSON asli
         console.log("Data mentah dari Web App:", allData);
-
         filterData();
       } catch (err) {
         console.error("Gagal mengambil data:", err);
@@ -170,8 +168,6 @@
       if (!rawDate) return { thn: '', bln: '', tglFormat: '', cleanDate: '' };
 
       let d = new Date(rawDate);
-      
-      // Jika penanganan tanggal Date standar berhasil (bukan NaN)
       if (!isNaN(d.getTime())) {
         let thn = d.getFullYear().toString();
         let bln = String(d.getMonth() + 1).padStart(2, '0');
@@ -184,7 +180,6 @@
         };
       }
 
-      // Fallback jika formatnya YYYY-MM-DD atau DD/MM/YYYY
       let str = String(rawDate).split('T')[0];
       if (str.includes('-')) {
         let parts = str.split('-');
@@ -207,11 +202,9 @@
       const thn = document.getElementById('filterTahun').value;
 
       let filtered = allData.filter(item => {
-        // Cek Jenis (Abaikan Pemasukan)
         const jenisStr = String(item.jenis || '').trim().toLowerCase();
         let isPengeluaran = jenisStr !== 'pemasukan';
 
-        // Parse Tanggal
         const parsed = parseDateString(item.tanggal);
 
         let matchThn = !thn || parsed.thn === thn;
@@ -282,7 +275,7 @@
 
       document.getElementById('inputId').value = item.id;
       document.getElementById('inputTanggal').value = parsed.cleanDate;
-      document.getElementById('inputJenis').value = item.jenis || '';
+      document.getElementById('inputJenis').value = item.jenisPengeluaran || item.jenis || '';
       document.getElementById('inputKategori').value = item.kategori || '';
       document.getElementById('inputJumlah').value = item.jumlah || 0;
       document.getElementById('inputHarga').value = item.hargaSatuan || 0;
@@ -303,7 +296,8 @@
         payload: {
           id: isEdit ? id : 'TRX-' + Date.now(),
           tanggal: document.getElementById('inputTanggal').value,
-          jenis: document.getElementById('inputJenis').value,
+          jenis: 'Pengeluaran', // Label utama untuk kolom Jenis di Sheet
+          jenisPengeluaran: document.getElementById('inputJenis').value, // Tipe spesifik (Bahan Baku, Gaji, dll)
           kategori: document.getElementById('inputKategori').value,
           jumlah: Number(document.getElementById('inputJumlah').value),
           hargaSatuan: Number(document.getElementById('inputHarga').value),
@@ -315,7 +309,7 @@
       try {
         await fetch(WEB_APP_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Menghindari masalah CORS preflight pada Apps Script
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
         modalInstance.hide();
