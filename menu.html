@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manajemen Menu & Resep</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+  <div class="container py-4">
+    <!-- Header Navigasi -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
+        <h2 class="fw-bold mb-0">Halaman Manajemen Menu & Resep</h2>
+      </div>
+      <button class="btn btn-primary" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Tambah Menu Baru</button>
+    </div>
+
+    <!-- Kotak Pengaman Password untuk Resep -->
+    <div class="card border-0 shadow-sm mb-4 bg-white" id="authCard">
+      <div class="card-body">
+        <h5 class="fw-bold text-dark mb-2"><i class="bi bi-shield-lock text-warning"></i> Keamanan Resep Rahasia</h5>
+        <p class="small text-muted mb-3">Detail resep dan takaran bahan baku dikunci. Masukkan password untuk melihat dan mengelolanya.</p>
+        <div class="input-group" style="max-width: 400px;">
+          <input type="password" id="inputPassword" class="form-control" placeholder="Masukkan password rahasia...">
+          <button class="btn btn-dark" type="button" onclick="verifyPassword()">Buka Resep</button>
+        </div>
+        <small id="authError" class="text-danger d-none mt-1">Password salah! Silakan coba lagi.</small>
+      </div>
+    </div>
+
+    <!-- Tabel Data Menu & Resep (Awalnya Disembunyikan / Dikunci) -->
+    <div class="card border-0 shadow-sm d-none" id="mainContentCard">
+      <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 fw-bold"><i class="bi bi-journal-text"></i> Daftar Menu & Komposisi Resep</h5>
+        <button class="btn btn-outline-light btn-sm" onclick="lockRecipe()"><i class="bi bi-lock"></i> Kunci Kembali</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-secondary">
+              <tr>
+                <th>ID Menu</th>
+                <th>Nama Menu Masakan</th>
+                <th>Bahan Baku (ID / Nama)</th>
+                <th>Takaran / Qty Resep</th>
+                <th class="text-center" style="width: 130px;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr><td colspan="5" class="text-center py-4">Memuat data...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Form Tambah/Edit Menu & Resep -->
+  <div class="modal fade" id="modalForm" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="modalTitle">Tambah Menu & Resep</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form id="formMenu" onsubmit="submitForm(event)">
+          <div class="modal-body">
+            <input type="hidden" id="inputId">
+
+            <div class="mb-3">
+              <label class="form-label">Nama Menu Masakan</label>
+              <input type="text" id="inputNamaMenu" class="form-control" placeholder="Contoh: Ayam Karage" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">ID / Nama Bahan Baku (Acuan Stock)</label>
+              <input type="text" id="inputBarang" class="form-control" placeholder="Contoh: Ayam Fillet Biasa atau BRG-123456" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Takaran Kebutuhan per 1 Porsi (Qty Resep)</label>
+              <input type="number" step="any" id="inputQtyResep" class="form-control" placeholder="Contoh: 0.25 (jika 250 gram)" min="0.001" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmit">Simpan Menu</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec";
+    const SECRET_PASSWORD = "rahasiarestoran"; // <-- GANTI PASSWORD SESUAI KEINGINAN ANDA DI SINI
+    let allRecipes = [];
+    let modalInstance = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      modalInstance = new bootstrap.Modal(document.getElementById('modalForm'));
+    });
+
+    function verifyPassword() {
+      const pass = document.getElementById('inputPassword').value;
+      const errorText = document.getElementById('authError');
+
+      if (pass === SECRET_PASSWORD) {
+        document.getElementById('authCard').classList.add('d-none');
+        document.getElementById('mainContentCard').classList.remove('d-none');
+        errorText.classList.add('d-none');
+        loadRecipes();
+      } else {
+        errorText.classList.remove('d-none');
+      }
+    }
+
+    function lockRecipe() {
+      document.getElementById('inputPassword').value = '';
+      document.getElementById('mainContentCard').classList.add('d-none');
+      document.getElementById('authCard').classList.remove('d-none');
+    }
+
+    async function loadRecipes() {
+      try {
+        const response = await fetch(`${WEB_APP_URL}?action=getResepMenu`);
+        allRecipes = await response.json();
+        renderTable(allRecipes);
+      } catch (err) {
+        document.getElementById('tableBody').innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">Gagal memuat data resep.</td></tr>`;
+      }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">Belum ada data resep menu.</td></tr>`;
+        return;
+      }
+
+      data.forEach(row => {
+        tbody.innerHTML += `
+          <tr>
+            <td><small class="fw-semibold text-secondary">${row.idResep || '-'}</small></td>
+            <td class="fw-bold">${row.namaMenu || '-'}</td>
+            <td>${row.idBarang || '-'}</td>
+            <td>${row.qtyResep || 0}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-warning me-1" onclick="openEditModal('${row.idResep}')" title="Edit">
+                <i class="bi bi-pencil-square"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" onclick="deleteData('${row.idResep}')" title="Hapus">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    function openAddModal() {
+      document.getElementById('formMenu').reset();
+      document.getElementById('inputId').value = '';
+      document.getElementById('modalTitle').innerText = 'Tambah Menu & Resep';
+      document.getElementById('btnSubmit').innerText = 'Simpan Menu';
+      modalInstance.show();
+    }
+
+    function openEditModal(id) {
+      const item = allRecipes.find(d => String(d.idResep) === String(id));
+      if (!item) {
+        alert('Data resep tidak ditemukan!');
+        return;
+      }
+
+      document.getElementById('inputId').value = item.idResep;
+      document.getElementById('inputNamaMenu').value = item.namaMenu || '';
+      document.getElementById('inputBarang').value = item.idBarang || '';
+      document.getElementById('inputQtyResep').value = item.qtyResep || 0;
+
+      document.getElementById('modalTitle').innerText = 'Edit Menu & Resep';
+      document.getElementById('btnSubmit').innerText = 'Update Perubahan';
+      modalInstance.show();
+    }
+
+    async function submitForm(e) {
+      e.preventDefault();
+      const id = document.getElementById('inputId').value;
+      const isEdit = Boolean(id);
+
+      const payload = {
+        action: isEdit ? 'updateResepMenu' : 'addResepMenu',
+        payload: {
+          idResep: isEdit ? id : 'RSP-' + Date.now(),
+          namaMenu: document.getElementById('inputNamaMenu').value,
+          idBarang: document.getElementById('inputBarang').value,
+          qtyResep: Number(document.getElementById('inputQtyResep').value)
+        }
+      };
+
+      try {
+        await fetch(WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        modalInstance.hide();
+        loadRecipes();
+      } catch (err) {
+        alert('Gagal menyimpan data resep!');
+      }
+    }
+
+    async function deleteData(id) {
+      if (!confirm(`Apakah Anda yakin ingin menghapus resep dengan ID: ${id}?`)) return;
+
+      const payload = {
+        action: 'deleteResepMenu',
+        id: id
+      };
+
+      try {
+        await fetch(WEB_APP_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        loadRecipes();
+      } catch (err) {
+        alert('Gagal menghapus resep!');
+      }
+    }
+  </script>
+</body>
+</html>
