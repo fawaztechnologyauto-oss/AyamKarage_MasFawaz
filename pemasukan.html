@@ -112,7 +112,9 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Nama Menu Masakan</label>
-              <input type="text" id="inputMenu" class="form-control" placeholder="Contoh: Ayam Karage" required>
+              <select id="inputMenu" class="form-select" required>
+                <option value="" disabled selected>-- Memuat Menu... --</option>
+              </select>
             </div>
             <div class="mb-3">
               <label class="form-label">Jumlah Terjual (Qty)</label>
@@ -137,6 +139,7 @@
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec";
     let dataPemasukan = [];
     let dataPengeluaran = [];
+    let listResepMenu = [];
     let modalInstance = null;
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -146,18 +149,41 @@
 
     async function loadData() {
       try {
-        const [resPemasukan, resPengeluaran] = await Promise.all([
+        const [resPemasukan, resPengeluaran, resResep] = await Promise.all([
           fetch(`${WEB_APP_URL}?action=getPemasukan`),
-          fetch(`${WEB_APP_URL}?action=getPengeluaran`)
+          fetch(`${WEB_APP_URL}?action=getPengeluaran`),
+          fetch(`${WEB_APP_URL}?action=getResepMenu`)
         ]);
 
         dataPemasukan = await resPemasukan.json();
         dataPengeluaran = await resPengeluaran.json();
+        listResepMenu = await resResep.json();
 
+        populateMenuDropdown();
         filterData();
       } catch (err) {
         document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Gagal memuat data.</td></tr>`;
       }
+    }
+
+    function populateMenuDropdown() {
+      const selectMenu = document.getElementById('inputMenu');
+      selectMenu.innerHTML = '<option value="" disabled selected>-- Pilih Menu --</option>';
+
+      if (!listResepMenu || listResepMenu.length === 0) {
+        selectMenu.innerHTML = '<option value="" disabled>-- Tidak Ada Menu di Resep_Menu --</option>';
+        return;
+      }
+
+      // Ambil daftar nama menu unik dari Resep_Menu
+      const uniqueMenus = [...new Set(listResepMenu.map(item => item.namaMenu).filter(Boolean))];
+
+      uniqueMenus.forEach(menuName => {
+        const option = document.createElement('option');
+        option.value = menuName;
+        option.textContent = menuName;
+        selectMenu.appendChild(option);
+      });
     }
 
     function parseDateString(rawDate) {
@@ -277,6 +303,7 @@
       document.getElementById('formPemasukan').reset();
       document.getElementById('inputId').value = '';
       document.getElementById('inputTanggal').valueAsDate = new Date();
+      populateMenuDropdown();
       document.getElementById('modalTitle').innerText = 'Catat Penjualan';
       document.getElementById('btnSubmit').innerText = 'Simpan & Potong Stok';
       document.getElementById('btnSubmit').className = 'btn btn-success';
@@ -294,6 +321,8 @@
 
       document.getElementById('inputId').value = item.id;
       document.getElementById('inputTanggal').value = parsed.cleanDate;
+      
+      populateMenuDropdown();
       document.getElementById('inputMenu').value = item.kategori || '';
       document.getElementById('inputJumlah').value = item.jumlah || 0;
       document.getElementById('inputHarga').value = item.hargaSatuan || 0;
