@@ -9,13 +9,16 @@
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <!-- Header Navigasi -->
+    <!-- Header Navigasi & User Info -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
         <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
         <h2 class="fw-bold mb-0">Halaman Manajemen Menu & Resep</h2>
       </div>
-      <button class="btn btn-primary" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Tambah Menu Baru</button>
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-primary" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Tambah Menu Baru</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+      </div>
     </div>
 
     <!-- Kotak Pengaman Password untuk Resep -->
@@ -95,11 +98,19 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec";
-    const SECRET_PASSWORD = "rahasiarestoran"; // <-- GANTI PASSWORD SESUAI KEINGINAN ANDA DI SINI
+    const SECRET_PASSWORD = "rahasiarestoran"; // Ganti password sesuai keinginan Anda
     let allRecipes = [];
     let modalInstance = null;
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Pengecekan Keamanan Sesi Login
+      const session = JSON.parse(localStorage.getItem('userSession'));
+      if (!session) {
+        alert('Sesi habis atau Anda belum login. Silakan login terlebih dahulu.');
+        window.location.href = 'login.html';
+        return;
+      }
+
       modalInstance = new bootstrap.Modal(document.getElementById('modalForm'));
     });
 
@@ -232,6 +243,13 @@
         loadRecipes();
       } catch (err) {
         alert('Gagal menghapus resep!');
+      }
+    }
+
+    function logout() {
+      if (confirm('Apakah Anda yakin ingin keluar?')) {
+        localStorage.removeItem('userSession');
+        window.location.href = 'login.html';
       }
     }
   </script>
