@@ -15,7 +15,7 @@
         <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
         <h2 class="fw-bold mb-0">Halaman Pemasukan & Penjualan</h2>
       </div>
-      <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalTambah"><i class="bi bi-plus-lg"></i> Catat Penjualan</button>
+      <button class="btn btn-success" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Catat Penjualan</button>
     </div>
 
     <!-- Section Filter & Ringkasan Total & Profit -->
@@ -82,7 +82,7 @@
                 <th>Qty Terjual</th>
                 <th>Harga Satuan</th>
                 <th>Total Pemasukan</th>
-                <th class="text-center">Aksi</th>
+                <th class="text-center" style="width: 130px;">Aksi</th>
               </tr>
             </thead>
             <tbody id="tableBody">
@@ -94,16 +94,18 @@
     </div>
   </div>
 
-  <!-- Modal Tambah Penjualan -->
-  <div class="modal fade" id="modalTambah" tabindex="-1">
+  <!-- Modal Form (Tambah / Edit) -->
+  <div class="modal fade" id="modalForm" tabindex="-1">
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title fw-bold">Input Penjualan / Pemasukan</h5>
+          <h5 class="modal-title fw-bold" id="modalTitle">Catat Penjualan</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <form id="formPemasukan" onsubmit="submitForm(event)">
           <div class="modal-body">
+            <input type="hidden" id="inputId">
+
             <div class="mb-3">
               <label class="form-label">Tanggal Transaksi</label>
               <input type="date" id="inputTanggal" class="form-control" required>
@@ -123,44 +125,7 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-            <button type="submit" class="btn btn-success" id="btnSimpanTambah">Simpan & Potong Stok</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Edit Penjualan -->
-  <div class="modal fade" id="modalEdit" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title fw-bold">Edit Penjualan / Pemasukan</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <form id="formEditPemasukan" onsubmit="submitEditForm(event)">
-          <div class="modal-body">
-            <input type="hidden" id="editId">
-            <div class="mb-3">
-              <label class="form-label">Tanggal Transaksi</label>
-              <input type="date" id="editTanggal" class="form-control" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Nama Menu Masakan</label>
-              <input type="text" id="editMenu" class="form-control" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Jumlah Terjual (Qty)</label>
-              <input type="number" id="editJumlah" class="form-control" min="1" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Harga Jual Satuan (Rp)</label>
-              <input type="number" id="editHarga" class="form-control" min="0" required>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-            <button type="submit" class="btn btn-primary" id="btnSimpanEdit">Simpan Perubahan</button>
+            <button type="submit" class="btn btn-success" id="btnSubmit">Simpan & Potong Stok</button>
           </div>
         </form>
       </div>
@@ -172,9 +137,12 @@
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec";
     let dataPemasukan = [];
     let dataPengeluaran = [];
+    let modalInstance = null;
 
-    // Set tanggal default ke hari ini
-    document.getElementById('inputTanggal').valueAsDate = new Date();
+    window.addEventListener('DOMContentLoaded', () => {
+      modalInstance = new bootstrap.Modal(document.getElementById('modalForm'));
+      loadData();
+    });
 
     async function loadData() {
       try {
@@ -192,23 +160,57 @@
       }
     }
 
+    function parseDateString(rawDate) {
+      if (!rawDate) return { thn: '', bln: '', tglFormat: '', cleanDate: '' };
+
+      let d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        let thn = d.getFullYear().toString();
+        let bln = String(d.getMonth() + 1).padStart(2, '0');
+        let tgl = String(d.getDate()).padStart(2, '0');
+        return {
+          thn: thn,
+          bln: bln,
+          tglFormat: `${thn}-${bln}-${tgl}`,
+          cleanDate: `${thn}-${bln}-${tgl}`
+        };
+      }
+
+      let str = String(rawDate).split('T')[0];
+      if (str.includes('-')) {
+        let parts = str.split('-');
+        if (parts.length === 3) {
+          return {
+            thn: parts[0],
+            bln: parts[1].padStart(2, '0'),
+            tglFormat: `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`,
+            cleanDate: `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+          };
+        }
+      }
+
+      return { thn: '', bln: '', tglFormat: str, cleanDate: str };
+    }
+
     function filterData() {
       const tgl = document.getElementById('filterTanggal').value;
       const bln = document.getElementById('filterBulan').value;
       const thn = document.getElementById('filterTahun').value;
 
       let filteredPemasukan = dataPemasukan.filter(item => {
-        let dateObj = new Date(item.tanggal);
-        let itemThn = dateObj.getFullYear().toString();
-        let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
-        return (!thn || itemThn === thn) && (!bln || itemBln === bln) && (!tgl || item.tanggal === tgl);
+        const parsed = parseDateString(item.tanggal);
+        let matchThn = !thn || parsed.thn === thn;
+        let matchBln = !bln || parsed.bln === bln;
+        let matchTgl = !tgl || parsed.tglFormat === tgl;
+        return matchThn && matchBln && matchTgl;
       });
 
       let filteredPengeluaran = dataPengeluaran.filter(item => {
-        let dateObj = new Date(item.tanggal);
-        let itemThn = dateObj.getFullYear().toString();
-        let itemBln = String(dateObj.getMonth() + 1).padStart(2, '0');
-        return (!thn || itemThn === thn) && (!bln || itemBln === bln) && (!tgl || item.tanggal === tgl);
+        const parsed = parseDateString(item.tanggal);
+        let matchThn = !thn || parsed.thn === thn;
+        let matchBln = !bln || parsed.bln === bln;
+        let matchTgl = !tgl || parsed.tglFormat === tgl;
+        return matchThn && matchBln && matchTgl;
       });
 
       renderTable(filteredPemasukan, filteredPengeluaran);
@@ -222,30 +224,33 @@
       let totalPengeluaran = 0;
 
       pengeluaranList.forEach(item => {
-        totalPengeluaran += (item.jumlah * item.hargaSatuan);
+        let totalRow = Number(item.total) || (Number(item.jumlah || 0) * Number(item.hargaSatuan || 0));
+        totalPengeluaran += totalRow;
       });
 
-      if (pemasukanList.length === 0) {
+      if (!pemasukanList || pemasukanList.length === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">Tidak ada data penjualan pada periode ini.</td></tr>`;
       } else {
         pemasukanList.forEach(row => {
-          let omsetRow = row.jumlah * row.hargaSatuan;
+          let omsetRow = Number(row.total) || (Number(row.jumlah || 0) * Number(row.hargaSatuan || 0));
           totalPenjualan += omsetRow;
+
+          const parsed = parseDateString(row.tanggal);
 
           tbody.innerHTML += `
             <tr>
-              <td><small class="fw-semibold text-secondary">${row.id}</small></td>
-              <td>${row.tanggal}</td>
-              <td>${row.kategori}</td>
-              <td>${row.jumlah}</td>
-              <td>Rp ${Number(row.hargaSatuan).toLocaleString('id-ID')}</td>
+              <td><small class="fw-semibold text-secondary">${row.id || '-'}</small></td>
+              <td>${parsed.cleanDate || row.tanggal || '-'}</td>
+              <td>${row.kategori || '-'}</td>
+              <td>${row.jumlah || 0}</td>
+              <td>Rp ${Number(row.hargaSatuan || 0).toLocaleString('id-ID')}</td>
               <td class="fw-bold text-success">Rp ${Number(omsetRow).toLocaleString('id-ID')}</td>
               <td class="text-center">
-                <button class="btn btn-sm btn-warning me-1" onclick="openEditModal('${row.id}', '${row.tanggal}', '${escapeQuotes(row.kategori)}', ${row.jumlah}, ${row.hargaSatuan})">
-                  <i class="bi bi-pencil-square"></i> Edit
+                <button class="btn btn-sm btn-outline-warning me-1" onclick="openEditModal('${row.id}')" title="Edit Data">
+                  <i class="bi bi-pencil-square"></i>
                 </button>
-                <button class="btn btn-sm btn-danger" onclick="deleteData('${row.id}')">
-                  <i class="bi bi-trash"></i> Hapus
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteData('${row.id}')" title="Hapus Data">
+                  <i class="bi bi-trash"></i>
                 </button>
               </td>
             </tr>
@@ -268,23 +273,52 @@
       }
     }
 
-    function escapeQuotes(str) {
-      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    function openAddModal() {
+      document.getElementById('formPemasukan').reset();
+      document.getElementById('inputId').value = '';
+      document.getElementById('inputTanggal').valueAsDate = new Date();
+      document.getElementById('modalTitle').innerText = 'Catat Penjualan';
+      document.getElementById('btnSubmit').innerText = 'Simpan & Potong Stok';
+      document.getElementById('btnSubmit').className = 'btn btn-success';
+      modalInstance.show();
+    }
+
+    function openEditModal(id) {
+      const item = dataPemasukan.find(d => String(d.id) === String(id));
+      if (!item) {
+        alert('Data tidak ditemukan!');
+        return;
+      }
+
+      const parsed = parseDateString(item.tanggal);
+
+      document.getElementById('inputId').value = item.id;
+      document.getElementById('inputTanggal').value = parsed.cleanDate;
+      document.getElementById('inputMenu').value = item.kategori || '';
+      document.getElementById('inputJumlah').value = item.jumlah || 0;
+      document.getElementById('inputHarga').value = item.hargaSatuan || 0;
+
+      document.getElementById('modalTitle').innerText = 'Edit Penjualan';
+      document.getElementById('btnSubmit').innerText = 'Update Perubahan';
+      document.getElementById('btnSubmit').className = 'btn btn-primary';
+      modalInstance.show();
     }
 
     async function submitForm(e) {
       e.preventDefault();
-      const btn = document.getElementById('btnSimpanTambah');
+      const btn = document.getElementById('btnSubmit');
       btn.disabled = true;
-      btn.innerText = 'Menyimpan...';
+
+      const id = document.getElementById('inputId').value;
+      const isEdit = Boolean(id);
 
       const qty = Number(document.getElementById('inputJumlah').value);
       const harga = Number(document.getElementById('inputHarga').value);
 
       const payload = {
-        action: 'addTransaction',
+        action: isEdit ? 'updateTransaction' : 'addTransaction',
         payload: {
-          id: 'TRX-' + Date.now(),
+          id: isEdit ? id : 'TRX-' + Date.now(),
           tanggal: document.getElementById('inputTanggal').value,
           jenis: 'Pemasukan',
           kategori: document.getElementById('inputMenu').value,
@@ -298,83 +332,31 @@
       try {
         await fetch(WEB_APP_URL, {
           method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
 
-        bootstrap.Modal.getInstance(document.getElementById('modalTambah')).hide();
-        document.getElementById('formPemasukan').reset();
-        document.getElementById('inputTanggal').valueAsDate = new Date();
+        modalInstance.hide();
         loadData();
       } catch (err) {
         alert("Gagal menyimpan transaksi.");
       } finally {
         btn.disabled = false;
-        btn.innerText = 'Simpan & Potong Stok';
-      }
-    }
-
-    function openEditModal(id, tanggal, menu, jumlah, hargaSatuan) {
-      document.getElementById('editId').value = id;
-      document.getElementById('editTanggal').value = tanggal;
-      document.getElementById('editMenu').value = menu;
-      document.getElementById('editJumlah').value = jumlah;
-      document.getElementById('editHarga').value = hargaSatuan;
-
-      const editModal = new bootstrap.Modal(document.getElementById('modalEdit'));
-      editModal.show();
-    }
-
-    async function submitEditForm(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btnSimpanEdit');
-      btn.disabled = true;
-      btn.innerText = 'Memperbarui...';
-
-      const id = document.getElementById('editId').value;
-      const tanggal = document.getElementById('editTanggal').value;
-      const menu = document.getElementById('editMenu').value;
-      const jumlah = Number(document.getElementById('editJumlah').value);
-      const hargaSatuan = Number(document.getElementById('editHarga').value);
-
-      const payload = {
-        action: 'updateTransaction',
-        payload: {
-          id: id,
-          tanggal: tanggal,
-          kategori: menu,
-          jumlah: jumlah,
-          hargaSatuan: hargaSatuan,
-          total: jumlah * hargaSatuan
-        }
-      };
-
-      try {
-        await fetch(WEB_APP_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-
-        bootstrap.Modal.getInstance(document.getElementById('modalEdit')).hide();
-        loadData();
-      } catch (err) {
-        alert("Gagal memperbarui transaksi.");
-      } finally {
-        btn.disabled = false;
-        btn.innerText = 'Simpan Perubahan';
       }
     }
 
     async function deleteData(idTrx) {
       if (!confirm(`Apakah Anda yakin ingin menghapus transaksi ${idTrx}?`)) return;
 
-      try {
-        const payload = {
-          action: 'deleteTransaction',
-          payload: { id: idTrx }
-        };
+      const payload = {
+        action: 'deleteTransaction',
+        id: idTrx
+      };
 
+      try {
         await fetch(WEB_APP_URL, {
           method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
 
@@ -383,8 +365,6 @@
         alert("Gagal menghapus data.");
       }
     }
-
-    window.onload = loadData;
   </script>
 </body>
 </html>
