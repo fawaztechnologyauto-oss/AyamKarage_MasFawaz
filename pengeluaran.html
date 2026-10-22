@@ -9,13 +9,16 @@
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <!-- Header Navigasi -->
+    <!-- Header Navigasi & User Info -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
         <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
         <h2 class="fw-bold mb-0">Halaman Pengeluaran</h2>
       </div>
-      <button class="btn btn-danger" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Tambah Pengeluaran</button>
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-danger" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Tambah Pengeluaran</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+      </div>
     </div>
 
     <!-- Section Filter & Ringkasan Total -->
@@ -114,7 +117,7 @@
                 <option value="Operasional">Operasional</option>
                 <option value="Gaji Karyawan">Gaji Karyawan</option>
                 <option value="Sewa Tempat">Sewa Tempat</option>
-                <option value="Listrik-Air-Gas Elpiji">Listrik-Air-Gas Elpiji</option>
+                <option value="Listrik & Air">Listrik & Air</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
@@ -147,6 +150,14 @@
     let modalInstance = null;
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Pengecekan Sesi Login
+      const session = JSON.parse(localStorage.getItem('userSession'));
+      if (!session) {
+        alert('Sesi habis atau Anda belum login. Silakan login terlebih dahulu.');
+        window.location.href = 'login.html';
+        return;
+      }
+
       modalInstance = new bootstrap.Modal(document.getElementById('modalForm'));
       loadData();
     });
@@ -156,7 +167,6 @@
         const response = await fetch(`${WEB_APP_URL}?action=getPengeluaran`);
         allData = await response.json();
         
-        console.log("Data mentah dari Web App:", allData);
         filterData();
       } catch (err) {
         console.error("Gagal mengambil data:", err);
@@ -273,10 +283,21 @@
 
       const parsed = parseDateString(item.tanggal);
 
+      // Ekstraksi sub-jenis dari kategori jika menggunakan format [Jenis] Kategori
+      let rawKategori = item.kategori || '';
+      let jenisPengeluaran = '';
+      if (rawKategori.startsWith('[')) {
+        let closeBracket = rawKategori.indexOf(']');
+        if (closeBracket !== -1) {
+          jenisPengeluaran = rawKategori.substring(1, closeBracket);
+          rawKategori = rawKategori.substring(closeBracket + 1).trim();
+        }
+      }
+
       document.getElementById('inputId').value = item.id;
       document.getElementById('inputTanggal').value = parsed.cleanDate;
-      document.getElementById('inputJenis').value = item.jenisPengeluaran || item.jenis || '';
-      document.getElementById('inputKategori').value = item.kategori || '';
+      document.getElementById('inputJenis').value = jenisPengeluaran || item.jenis || '';
+      document.getElementById('inputKategori').value = rawKategori;
       document.getElementById('inputJumlah').value = item.jumlah || 0;
       document.getElementById('inputHarga').value = item.hargaSatuan || 0;
 
@@ -296,13 +317,12 @@
         payload: {
           id: isEdit ? id : 'TRX-' + Date.now(),
           tanggal: document.getElementById('inputTanggal').value,
-          jenis: 'Pengeluaran', // Label utama untuk kolom Jenis di Sheet
-          jenisPengeluaran: document.getElementById('inputJenis').value, // Tipe spesifik (Bahan Baku, Gaji, dll)
+          jenis: 'Pengeluaran',
+          jenisPengeluaran: document.getElementById('inputJenis').value,
           kategori: document.getElementById('inputKategori').value,
           jumlah: Number(document.getElementById('inputJumlah').value),
           hargaSatuan: Number(document.getElementById('inputHarga').value),
-          total: Number(document.getElementById('inputJumlah').value) * Number(document.getElementById('inputHarga').value),
-          keuntungan: 0
+          total: Number(document.getElementById('inputJumlah').value) * Number(document.getElementById('inputHarga').value)
         }
       };
 
@@ -336,6 +356,13 @@
         loadData();
       } catch (err) {
         alert('Gagal menghapus data!');
+      }
+    }
+
+    function logout() {
+      if (confirm('Apakah Anda yakin ingin keluar?')) {
+        localStorage.removeItem('userSession');
+        window.location.href = 'login.html';
       }
     }
   </script>
