@@ -9,13 +9,16 @@
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <!-- Header Navigasi -->
+    <!-- Header Navigasi & User Info -->
     <div class="d-flex justify-content-between align-items-center mb-4">
       <div>
         <a href="index.html" class="btn btn-outline-secondary btn-sm mb-2"><i class="bi bi-arrow-left"></i> Kembali ke Home</a>
         <h2 class="fw-bold mb-0">Halaman Pemasukan & Penjualan</h2>
       </div>
-      <button class="btn btn-success" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Catat Penjualan</button>
+      <div class="d-flex align-items-center gap-3">
+        <button class="btn btn-success" onclick="openAddModal()"><i class="bi bi-plus-lg"></i> Catat Penjualan</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Logout</button>
+      </div>
     </div>
 
     <!-- Section Filter & Ringkasan Total & Profit -->
@@ -113,7 +116,7 @@
             <div class="mb-3">
               <label class="form-label">Nama Menu Masakan</label>
               <select id="inputMenu" class="form-select" required>
-                <option value="" disabled selected>-- Memuat Menu... --</option>
+                <option value="" disabled selected>-- Pilih Menu --</option>
               </select>
             </div>
             <div class="mb-3">
@@ -143,6 +146,14 @@
     let modalInstance = null;
 
     window.addEventListener('DOMContentLoaded', () => {
+      // Pengecekan Sesi Login
+      const session = JSON.parse(localStorage.getItem('userSession'));
+      if (!session) {
+        alert('Sesi habis atau Anda belum login. Silakan login terlebih dahulu.');
+        window.location.href = 'login.html';
+        return;
+      }
+
       modalInstance = new bootstrap.Modal(document.getElementById('modalForm'));
       loadData();
     });
@@ -175,7 +186,6 @@
         return;
       }
 
-      // Ambil daftar nama menu unik dari Resep_Menu
       const uniqueMenus = [...new Set(listResepMenu.map(item => item.namaMenu).filter(Boolean))];
 
       uniqueMenus.forEach(menuName => {
@@ -353,8 +363,7 @@
           kategori: document.getElementById('inputMenu').value,
           jumlah: qty,
           hargaSatuan: harga,
-          total: qty * harga,
-          keuntungan: 0
+          total: qty * harga
         }
       };
 
@@ -392,6 +401,13 @@
         loadData();
       } catch (err) {
         alert("Gagal menghapus data.");
+      }
+    }
+
+    function logout() {
+      if (confirm('Apakah Anda yakin ingin keluar?')) {
+        localStorage.removeItem('userSession');
+        window.location.href = 'login.html';
       }
     }
   </script>
