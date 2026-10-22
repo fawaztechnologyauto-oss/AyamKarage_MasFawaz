@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard - App CRUD</title>
+  <title>Dashboard - Sistem Manajemen Restoran</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <style>
@@ -22,11 +22,16 @@
 </head>
 <body>
   <div class="container py-5">
-    <div class="text-center mb-5">
-      <h1 class="fw-bold">Sistem Manajemen Transaksi & Stok</h1>
-      <p class="text-muted">Pilih menu di bawah ini untuk mengelola data</p>
+    <!-- Header & Info User -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+      <div>
+        <h1 class="fw-bold">Sistem Manajemen Transaksi & Stok</h1>
+        <p class="text-muted mb-0">Selamat datang, <span id="usernameDisplay" class="fw-semibold text-primary"></span> (<span id="roleDisplay" class="badge bg-secondary"></span>)</p>
+      </div>
+      <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Keluar (Logout)</button>
     </div>
 
+    <!-- Menu Navigasi Dashboard -->
     <div class="row g-4 justify-content-center">
       <!-- Menu Pengeluaran -->
       <div class="col-md-3">
@@ -67,7 +72,7 @@
         </a>
       </div>
 
-      <!-- Menu Manajemen Menu & Resep (Baru) -->
+      <!-- Menu Manajemen Menu & Resep -->
       <div class="col-md-3">
         <a href="menu.html" class="card card-menu border-0 shadow-sm h-100 text-center p-3">
           <div class="card-body">
@@ -81,5 +86,28 @@
       </div>
     </div>
   </div>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      // Pengecekan Keamanan Sesi Login
+      const session = JSON.parse(localStorage.getItem('userSession'));
+      if (!session) {
+        alert('Sesi habis atau Anda belum login. Silakan login terlebih dahulu.');
+        window.location.href = 'login.html';
+        return;
+      }
+
+      // Tampilkan informasi user yang sedang login
+      document.getElementById('usernameDisplay').innerText = session.username;
+      document.getElementById('roleDisplay').innerText = session.levelAkses;
+    });
+
+    function logout() {
+      if (confirm('Apakah Anda yakin ingin keluar?')) {
+        localStorage.removeItem('userSession');
+        window.location.href = 'login.html';
+      }
+    }
+  </script>
 </body>
 </html>
