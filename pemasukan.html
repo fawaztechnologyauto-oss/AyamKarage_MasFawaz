@@ -97,9 +97,9 @@
     </div>
   </div>
 
-  <!-- Modal Form (Tambah / Edit) -->
+  <!-- Modal Form (Tambah / Edit Multi-Item) -->
   <div class="modal fade" id="modalForm" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title fw-bold" id="modalTitle">Catat Penjualan</h5>
@@ -113,19 +113,18 @@
               <label class="form-label">Tanggal Transaksi</label>
               <input type="date" id="inputTanggal" class="form-control" required>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Nama Menu Masakan</label>
-              <select id="inputMenu" class="form-select" required>
-                <option value="" disabled selected>-- Pilih Menu --</option>
-              </select>
+
+            <hr>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label class="form-label fw-bold mb-0">Daftar Menu yang Dibeli (Maks. 10 Item)</label>
+              <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddItemRow" onclick="addItemRow()">
+                <i class="bi bi-plus-circle"></i> Tambah Item Lain
+              </button>
             </div>
-            <div class="mb-3">
-              <label class="form-label">Jumlah Terjual (Qty)</label>
-              <input type="number" id="inputJumlah" class="form-control" min="1" required>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Harga Jual Satuan (Rp)</label>
-              <input type="number" id="inputHarga" class="form-control" min="0" required>
+
+            <!-- Container Baris Item Dinamis -->
+            <div id="itemRowsContainer" class="vstack gap-3">
+              <!-- Baris item akan dimasukkan via JavaScript -->
             </div>
           </div>
           <div class="modal-footer">
@@ -146,7 +145,6 @@
     let modalInstance = null;
 
     window.addEventListener('DOMContentLoaded', () => {
-      // Pengecekan Sesi Login
       const session = JSON.parse(localStorage.getItem('userSession'));
       if (!session) {
         alert('Sesi habis atau Anda belum login. Silakan login terlebih dahulu.');
@@ -170,30 +168,81 @@
         dataPengeluaran = await resPengeluaran.json();
         listResepMenu = await resResep.json();
 
-        populateMenuDropdown();
         filterData();
       } catch (err) {
         document.getElementById('tableBody').innerHTML = `<tr><td colspan="7" class="text-center text-danger py-4">Gagal memuat data.</td></tr>`;
       }
     }
 
-    function populateMenuDropdown() {
-      const selectMenu = document.getElementById('inputMenu');
-      selectMenu.innerHTML = '<option value="" disabled selected>-- Pilih Menu --</option>';
+    function getMenuOptionsHTML(selectedMenu = '') {
+      let options = '<option value="" disabled selected>-- Pilih Menu --</option>';
+      if (listResepMenu && listResepMenu.length > 0) {
+        const uniqueMenus = [...new Set(listResepMenu.map(item => item.namaMenu).filter(Boolean))];
+        uniqueMenus.forEach(menuName => {
+          const isSel = menuName === selectedMenu ? 'selected' : '';
+          options += `<option value="${menuName}" ${isSel}>${menuName}</option>`;
+        });
+      } else {
+        options = '<option value="" disabled>-- Tidak Ada Menu --</option>';
+      }
+      return options;
+    }
 
-      if (!listResepMenu || listResepMenu.length === 0) {
-        selectMenu.innerHTML = '<option value="" disabled>-- Tidak Ada Menu di Resep_Menu --</option>';
+    function addItemRow(menu = '', qty = '', harga = '') {
+      const container = document.getElementById('itemRowsContainer');
+      const currentRows = container.querySelectorAll('.item-row');
+      
+      if (currentRows.length >= 10) {
+        alert('Maksimal 10 jenis item per transaksi!');
         return;
       }
 
-      const uniqueMenus = [...new Set(listResepMenu.map(item => item.namaMenu).filter(Boolean))];
+      const rowIndex = currentRows.length;
+      const rowDiv = document.createElement('div');
+      rowDiv.className = 'row g-2 align-items-center item-row p-2 border rounded bg-white shadow-sm';
+      rowDiv.innerHTML = `
+        <div class="col-md-5">
+          <label class="form-label small text-muted mb-1">Menu Masakan</label>
+          <select class="form-select form-select-sm item-menu" required>
+            ${getMenuOptionsHTML(menu)}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">Qty Terjual</label>
+          <input type="number" class="form-control form-control-sm item-qty" min="1" value="${qty}" placeholder="Qty" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1">Harga Satuan (Rp)</label>
+          <input type="number" class="form-control form-control-sm item-harga" min="0" value="${harga}" placeholder="Harga" required>
+        </div>
+        <div class="col-md-1 text-center pt-3">
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeItemRow(this)" title="Hapus Baris">
+            <i class="bi bi-trash"></i>
+          </button>
+        </div>
+      `;
+      container.appendChild(rowDiv);
+      toggleAddButtonState();
+    }
 
-      uniqueMenus.forEach(menuName => {
-        const option = document.createElement('option');
-        option.value = menuName;
-        option.textContent = menuName;
-        selectMenu.appendChild(option);
-      });
+    function removeItemRow(btn) {
+      const container = document.getElementById('itemRowsContainer');
+      if (container.querySelectorAll('.item-row').length <= 1) {
+        alert('Minimal harus ada 1 item menu dalam transaksi.');
+        return;
+      }
+      btn.closest('.item-row').remove();
+      toggleAddButtonState();
+    }
+
+    function toggleAddButtonState() {
+      const container = document.getElementById('itemRowsContainer');
+      const addBtn = document.getElementById('btnAddItemRow');
+      if (container.querySelectorAll('.item-row').length >= 10) {
+        addBtn.disabled = true;
+      } else {
+        addBtn.disabled = false;
+      }
     }
 
     function parseDateString(rawDate) {
@@ -313,7 +362,10 @@
       document.getElementById('formPemasukan').reset();
       document.getElementById('inputId').value = '';
       document.getElementById('inputTanggal').valueAsDate = new Date();
-      populateMenuDropdown();
+      document.getElementById('itemRowsContainer').innerHTML = '';
+      
+      addItemRow(); // Buat baris pertama secara otomatis
+
       document.getElementById('modalTitle').innerText = 'Catat Penjualan';
       document.getElementById('btnSubmit').innerText = 'Simpan & Potong Stok';
       document.getElementById('btnSubmit').className = 'btn btn-success';
@@ -332,10 +384,8 @@
       document.getElementById('inputId').value = item.id;
       document.getElementById('inputTanggal').value = parsed.cleanDate;
       
-      populateMenuDropdown();
-      document.getElementById('inputMenu').value = item.kategori || '';
-      document.getElementById('inputJumlah').value = item.jumlah || 0;
-      document.getElementById('inputHarga').value = item.hargaSatuan || 0;
+      document.getElementById('itemRowsContainer').innerHTML = '';
+      addItemRow(item.kategori || '', item.jumlah || 0, item.hargaSatuan || 0);
 
       document.getElementById('modalTitle').innerText = 'Edit Penjualan';
       document.getElementById('btnSubmit').innerText = 'Update Perubahan';
@@ -350,29 +400,56 @@
 
       const id = document.getElementById('inputId').value;
       const isEdit = Boolean(id);
+      const tanggal = document.getElementById('inputTanggal').value;
+      const trxId = isEdit ? id : 'TRX-' + Date.now();
 
-      const qty = Number(document.getElementById('inputJumlah').value);
-      const harga = Number(document.getElementById('inputHarga').value);
+      // Ambil seluruh data item dari baris-baris dinamis
+      const rowElements = document.querySelectorAll('.item-row');
+      const items = [];
 
-      const payload = {
-        action: isEdit ? 'updateTransaction' : 'addTransaction',
-        payload: {
-          id: isEdit ? id : 'TRX-' + Date.now(),
-          tanggal: document.getElementById('inputTanggal').value,
-          jenis: 'Pemasukan',
-          kategori: document.getElementById('inputMenu').value,
-          jumlah: qty,
-          hargaSatuan: harga,
-          total: qty * harga
+      rowElements.forEach(row => {
+        const menu = row.querySelector('.item-menu').value;
+        const qty = Number(row.querySelector('.item-qty').value);
+        const harga = Number(row.querySelector('.item-harga').value);
+
+        if (menu && qty > 0) {
+          items.push({
+            id: trxId,
+            tanggal: tanggal,
+            jenis: 'Pemasukan',
+            kategori: menu,
+            jumlah: qty,
+            hargaSatuan: harga,
+            total: qty * harga
+          });
         }
-      };
+      });
+
+      if (items.length === 0) {
+        alert('Minimal isi satu item menu dengan benar.');
+        btn.disabled = false;
+        return;
+      }
 
       try {
-        await fetch(WEB_APP_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
+        // Jika sedang edit, kita bisa kirim action khusus atau hapus lalu tambahkan baru dengan ID yang sama
+        if (isEdit) {
+          // Hapus transaksi lama terlebih dahulu, lalu masukkan baris baru
+          await fetch(WEB_APP_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'deleteTransaction', id: id })
+          });
+        }
+
+        // Kirim semua item baru/edit ke backend secara berurutan atau satu per satu
+        for (let itemPayload of items) {
+          await fetch(WEB_APP_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: 'addTransaction', payload: itemPayload })
+          });
+        }
 
         modalInstance.hide();
         loadData();
