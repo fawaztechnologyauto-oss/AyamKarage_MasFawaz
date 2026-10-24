@@ -124,7 +124,7 @@
 
             <!-- Container Baris Item Dinamis -->
             <div id="itemRowsContainer" class="vstack gap-3">
-              <!-- Baris item akan dimasukkan via JavaScript -->
+              <!-- Baris item ditambahkan via JS -->
             </div>
           </div>
           <div class="modal-footer">
@@ -136,6 +136,25 @@
     </div>
   </div>
 
+  <!-- Modal Konfirmasi Hapus Transaksi -->
+  <div class="modal fade" id="deleteTransactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title fw-bold text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Konfirmasi Hapus</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          Apakah Anda yakin ingin menghapus transaksi dengan ID <strong id="deleteTargetId"></strong>? Tindakan ini tidak dapat dibatalkan.
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmDelete">Hapus Transaksi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFDfsQkCifBlgsgtmQ0Z68SSlDbAiqeGBGAmgEH8rCRsVf0vgrCKt-pqkt-hOqnS0s/exec";
@@ -143,6 +162,8 @@
     let dataPengeluaran = [];
     let listResepMenu = [];
     let modalInstance = null;
+    let deleteModalInstance = null;
+    let selectedIdTrxToDelete = null;
 
     window.addEventListener('DOMContentLoaded', () => {
       const session = JSON.parse(localStorage.getItem('userSession'));
@@ -153,6 +174,7 @@
       }
 
       modalInstance = new bootstrap.Modal(document.getElementById('modalForm'));
+      deleteModalInstance = new bootstrap.Modal(document.getElementById('deleteTransactionModal'));
       loadData();
     });
 
@@ -197,7 +219,6 @@
         return;
       }
 
-      const rowIndex = currentRows.length;
       const rowDiv = document.createElement('div');
       rowDiv.className = 'row g-2 align-items-center item-row p-2 border rounded bg-white shadow-sm';
       rowDiv.innerHTML = `
@@ -334,7 +355,7 @@
                 <button class="btn btn-sm btn-outline-warning me-1" onclick="openEditModal('${row.id}')" title="Edit Data">
                   <i class="bi bi-pencil-square"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteData('${row.id}')" title="Hapus Data">
+                <button class="btn btn-sm btn-outline-danger" onclick="confirmDeleteData('${row.id}')" title="Hapus Data">
                   <i class="bi bi-trash"></i>
                 </button>
               </td>
@@ -364,7 +385,7 @@
       document.getElementById('inputTanggal').valueAsDate = new Date();
       document.getElementById('itemRowsContainer').innerHTML = '';
       
-      addItemRow(); // Buat baris pertama secara otomatis
+      addItemRow();
 
       document.getElementById('modalTitle').innerText = 'Catat Penjualan';
       document.getElementById('btnSubmit').innerText = 'Simpan & Potong Stok';
@@ -403,7 +424,6 @@
       const tanggal = document.getElementById('inputTanggal').value;
       const trxId = isEdit ? id : 'TRX-' + Date.now();
 
-      // Ambil seluruh data item dari baris-baris dinamis
       const rowElements = document.querySelectorAll('.item-row');
       const items = [];
 
@@ -432,9 +452,7 @@
       }
 
       try {
-        // Jika sedang edit, kita bisa kirim action khusus atau hapus lalu tambahkan baru dengan ID yang sama
         if (isEdit) {
-          // Hapus transaksi lama terlebih dahulu, lalu masukkan baris baru
           await fetch(WEB_APP_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -442,7 +460,7 @@
           });
         }
 
-        // Kirim semua item baru/edit ke backend secara berurutan atau satu per satu
+        // Looping pengiriman item ke backend (tanpa mengubah code.gs)
         for (let itemPayload of items) {
           await fetch(WEB_APP_URL, {
             method: 'POST',
@@ -460,26 +478,34 @@
       }
     }
 
-    async function deleteData(idTrx) {
-      if (!confirm(`Apakah Anda yakin ingin menghapus transaksi ${idTrx}?`)) return;
+    // Fungsi Dialog Modal Konfirmasi Hapus
+    function confirmDeleteData(idTrx) {
+      selectedIdTrxToDelete = idTrx;
+      document.getElementById('deleteTargetId').innerText = idTrx;
+      deleteModalInstance.show();
+    }
+
+    document.getElementById('btnConfirmDelete').addEventListener('click', async () => {
+      if (!selectedIdTrxToDelete) return;
 
       const payload = {
         action: 'deleteTransaction',
-        id: idTrx
+        id: selectedIdTrxToDelete
       };
 
       try {
-        await fetch(WEB_APP_URL, {
+        const res = await fetch(WEB_APP_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
         });
 
+        deleteModalInstance.hide();
         loadData();
       } catch (err) {
         alert("Gagal menghapus data.");
       }
-    }
+    });
 
     function logout() {
       if (confirm('Apakah Anda yakin ingin keluar?')) {
