@@ -45,9 +45,9 @@
           <table class="table table-hover align-middle mb-0">
             <thead class="table-secondary">
               <tr>
-                <th>ID Menu</th>
+                <th>ID Resep</th>
                 <th>Nama Menu Masakan</th>
-                <th>Bahan Baku (ID / Nama)</th>
+                <th>Bahan Baku (Acuan Stock)</th>
                 <th>Takaran / Qty Resep</th>
                 <th class="text-center" style="width: 130px;">Aksi</th>
               </tr>
@@ -61,7 +61,7 @@
     </div>
   </div>
 
-  <!-- Modal Form Tambah/Edit Menu & Resep (Multi-Bahan) -->
+  <!-- Modal Form Tambah/Edit Menu & Resep (Multi-Bahan dengan 1 ID Resep) -->
   <div class="modal fade" id="modalForm" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -71,7 +71,7 @@
         </div>
         <form id="formMenu" onsubmit="submitForm(event)">
           <div class="modal-body">
-            <input type="hidden" id="inputId">
+            <input type="hidden" id="inputOriginalIdResep">
 
             <div class="mb-3">
               <label class="form-label fw-bold">Nama Menu Masakan</label>
@@ -81,7 +81,7 @@
             <hr>
             <div class="d-flex justify-content-between align-items-center mb-2">
               <label class="form-label fw-bold mb-0">Komposisi Bahan Baku (Terintegrasi ke Stock)</label>
-              <button type="button" class="btn btn-outline-primary btn-sm" id="btnAddIngredientRow" onclick="addIngredientRow()">
+              <button type="button" class="btn btn-outline-primary btn-sm" onclick="addIngredientRow()">
                 <i class="bi bi-plus-circle"></i> Tambah Bahan Lain
               </button>
             </div>
@@ -109,7 +109,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          Apakah Anda yakin ingin menghapus resep dengan ID <strong id="deleteTargetId"></strong>? Tindakan ini tidak dapat dibatalkan.
+          Apakah Anda yakin ingin menghapus seluruh resep dengan ID <strong id="deleteTargetId"></strong>? Tindakan ini tidak dapat dibatalkan.
         </div>
         <div class="modal-footer border-0">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
@@ -144,6 +144,7 @@
       try {
         const res = await fetch(`${WEB_APP_URL}?action=getStock`);
         listStock = await res.json();
+        setupStockDatalist();
       } catch (err) {
         console.error("Gagal mengambil data stock:", err);
       }
@@ -213,16 +214,21 @@
       });
     }
 
-    function getStockOptionsHTML(selectedVal = '') {
-      let options = '<option value="" disabled selected>-- Pilih / Ketik Bahan Baku --</option>';
+    function setupStockDatalist() {
+      let datalist = document.getElementById('stockListOptions');
+      if (!datalist) {
+        datalist = document.createElement('datalist');
+        datalist.id = 'stockListOptions';
+        document.body.appendChild(datalist);
+      }
+      datalist.innerHTML = '';
       if (listStock && listStock.length > 0) {
         listStock.forEach(item => {
-          const val = item.namaBarang || item.idBarang;
-          const isSel = val === selectedVal ? 'selected' : '';
-          options += `<option value="${val}" ${isSel}>${val} (${item.satuan || 'pcs'})</option>`;
+          const opt = document.createElement('option');
+          opt.value = item.namaBarang || item.idBarang;
+          datalist.appendChild(opt);
         });
       }
-      return options;
     }
 
     function addIngredientRow(bahan = '', qty = '') {
@@ -247,24 +253,6 @@
       container.appendChild(rowDiv);
     }
 
-    // Buat datalist untuk rekomendasi otomatis dari stock barang
-    function setupStockDatalist() {
-      let datalist = document.getElementById('stockListOptions');
-      if (!datalist) {
-        datalist = document.createElement('datalist');
-        datalist.id = 'stockListOptions';
-        document.body.appendChild(datalist);
-      }
-      datalist.innerHTML = '';
-      if (listStock && listStock.length > 0) {
-        listStock.forEach(item => {
-          const opt = document.createElement('option');
-          opt.value = item.namaBarang || item.idBarang;
-          datalist.appendChild(opt);
-        });
-      }
-    }
-
     function removeIngredientRow(btn) {
       const container = document.getElementById('ingredientRowsContainer');
       if (container.querySelectorAll('.ingredient-row').length <= 1) {
@@ -276,10 +264,9 @@
 
     function openAddModal() {
       document.getElementById('formMenu').reset();
-      document.getElementById('inputId').value = '';
+      document.getElementById('inputOriginalIdResep').value = '';
       document.getElementById('ingredientRowsContainer').innerHTML = '';
       
-      setupStockDatalist();
       addIngredientRow(); // Tambah 1 baris kosong default
 
       document.getElementById('modalTitle').innerText = 'Tambah Menu & Resep';
@@ -287,19 +274,20 @@
       modalInstance.show();
     }
 
-    function openEditModal(id) {
-      const item = allRecipes.find(d => String(d.idResep) === String(id));
-      if (!item) return alert('Data resep tidak ditemukan!');
+    function openEditModal(idResepTarget) {
+      // Ambil semua baris bahan yang memiliki idResep yang sama
+      const matchingItems = allRecipes.filter(d => String(d.idResep) === String(idResepTarget));
+      if (matchingItems.length === 0) return alert('Data resep tidak ditemukan!');
 
-      document.getElementById('inputId').value = item.idResep;
-      document.getElementById('inputNamaMenu').value = item.namaMenu || '';
+      document.getElementById('inputOriginalIdResep').value = idResepTarget;
+      document.getElementById('inputNamaMenu').value = matchingItems[0].namaMenu || '';
       
       document.getElementById('ingredientRowsContainer').innerHTML = '';
-      setupStockDatalist();
       
-      // Jika ingin mencari menu lain dengan nama yang sama untuk diedit sekaligus, bisa dicari:
-      // Di sini kita muat bahan yang bersangkutan (bisa diperluas jika ingin meload semua baris dengan nama menu yang sama)
-      addIngredientRow(item.idBarang || '', item.qtyResep || 0);
+      // Masukkan semua bahan ke baris form modal
+      matchingItems.forEach(item => {
+        addIngredientRow(item.idBarang || '', item.qtyResep || 0);
+      });
 
       document.getElementById('modalTitle').innerText = 'Edit Menu & Resep';
       document.getElementById('btnSubmit').innerText = 'Update Perubahan';
@@ -311,9 +299,12 @@
       const btn = document.getElementById('btnSubmit');
       btn.disabled = true;
 
-      const id = document.getElementById('inputId').value;
+      const originalIdResep = document.getElementById('inputOriginalIdResep').value;
       const namaMenu = document.getElementById('inputNamaMenu').value;
-      const isEdit = Boolean(id);
+      const isEdit = Boolean(originalIdResep);
+
+      // Gunakan 1 ID Resep yang sama untuk semua bahan dalam satu grup menu ini
+      const sharedIdResep = isEdit ? originalIdResep : 'RSP-' + Date.now();
 
       const rowElements = document.querySelectorAll('.ingredient-row');
       const ingredients = [];
@@ -324,7 +315,7 @@
 
         if (bahan && qty > 0) {
           ingredients.push({
-            idResep: isEdit && ingredients.length === 0 ? id : 'RSP-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            idResep: sharedIdResep, // Menggunakan ID Resep yang sama
             namaMenu: namaMenu,
             idBarang: bahan,
             qtyResep: qty
@@ -340,15 +331,15 @@
 
       try {
         if (isEdit) {
-          // Hapus resep lama berdasarkan ID atau nama menu, lalu masukkan yang baru
+          // Hapus resep lama berdasarkan grup idResep sebelum disimpan ulang
           await fetch(WEB_APP_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'deleteResepMenu', id: id })
+            body: JSON.stringify({ action: 'deleteResepByGroup', id: originalIdResep })
           });
         }
 
-        // Looping pengiriman bahan ke backend secara berurutan
+        // Looping pengiriman bahan ke backend secara berurutan dengan ID Resep yang seragam
         for (let itemPayload of ingredients) {
           await fetch(WEB_APP_URL, {
             method: 'POST',
@@ -366,7 +357,7 @@
       }
     }
 
-    // Fungsi Dialog Modal Konfirmasi Hapus
+    // Fungsi Dialog Modal Konfirmasi Hapus Grup Resep
     function confirmDeleteData(idResep) {
       selectedIdResepToDelete = idResep;
       document.getElementById('deleteTargetId').innerText = idResep;
@@ -377,12 +368,12 @@
       if (!selectedIdResepToDelete) return;
 
       const payload = {
-        action: 'deleteResepMenu',
+        action: 'deleteResepByGroup',
         id: selectedIdResepToDelete
       };
 
       try {
-        await fetch(WEB_APP_URL, {
+        const res = await fetch(WEB_APP_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(payload)
